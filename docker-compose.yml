@@ -1,0 +1,76 @@
+version: '2'
+services:
+  client:
+    image: mike909/client:v1
+    container_name: client
+    stdin_open: true
+    tty: true
+    networks:
+      client_net:
+        ipv4_address: 172.18.0.5
+    volumes:
+    - .:/mnt/hostdir
+    cap_add:
+     - NET_ADMIN
+    command: tail -f /dev/null
+
+  server:
+    image: mike909/server:v1
+    container_name: server
+    stdin_open: true
+    tty: true
+    networks:
+      server_net:
+        ipv4_address: 172.18.1.5
+    volumes:
+    - .:/mnt/hostdir
+    cap_add:
+     - NET_ADMIN
+    command: tail -f /dev/null
+
+  router:
+    image: mike909/router:v1
+    container_name: router
+    stdin_open: true
+    tty: true
+    privileged: true
+    networks:
+      router_net:
+        ipv4_address: 172.18.2.5
+      client_net:
+        ipv4_address: 172.18.0.1
+      server_net:
+        ipv4_address: 172.18.1.1
+    volumes:
+    - .:/mnt/hostdir
+    cap_add:
+     - NET_ADMIN
+    command: tail -f /dev/null
+
+networks:
+  client_net:
+    driver: bridge
+    driver_opts:
+      icc: "true"
+    ipam:
+      config:
+        - subnet: 172.18.0.0/24
+          gateway: 172.18.0.2
+
+  server_net:
+    driver: bridge
+    driver_opts:
+      icc: "true"
+    ipam:
+      config:
+        - subnet: 172.18.1.0/24
+          gateway: 172.18.1.2
+
+  router_net:
+    driver: bridge
+    driver_opts:
+      icc: "true"
+    ipam:
+      config:
+        - subnet: 172.18.2.0/24
+          gateway: 172.18.2.2
