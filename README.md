@@ -85,8 +85,8 @@ root@33a60d9be0a7:/home/simpleclient# ping 172.18.1.5 -c3
 ```
 Now, in our hosts direectory we have the two pcaps; one from Client and other from Server. In this contrived example we can simply open them both in Wireshark and analyze separately; however in a more complex situation, it may be beneficial to combone both pcaps into a single file, and analyze together. Open one pcap, then File-->Merge and select the other.
 Note, Wireshark won't be able to 'follow' the ICMP Echo/Reply conversation from the Client, however you can use the Sequence numbers yourself to follow it. For example:
-!(img/combined1.png "foo")
-!(img/conbined2.png)
+![icmpfollow](img/combined1.png)
+![icmpfollow](img/combined2.png)
 
 Note, I've changed the preferences to show Source and Dest as MAC instead of IP here to make it easier to read (Preferences-->Columns). I've also modified the address resolution to rename the MACs to Client, Server and Router instead of the actual MAC address. Do this in View-->Name Resolution-->Edit Resolved Name; or populate a file named 'ethers' in your config directory (see Help-->About Wireshark-->Folders). For example, my ethers file:
 ```
