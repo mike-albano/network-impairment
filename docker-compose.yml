@@ -17,6 +17,7 @@ services:
   server:
     image: mike909/server:v1
     container_name: server
+    privileged: true
     stdin_open: true
     tty: true
     networks:
