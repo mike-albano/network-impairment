@@ -71,7 +71,7 @@ listening on eth2, link-type EN10MB (Ethernet), capture size 262144 bytes
  00:00:00.999918 IP 172.18.0.5 > 172.18.1.5: ICMP echo request, id 30, seq 3, length 64
  **00:00:00.000394** IP 172.18.1.5 > 172.18.0.5: ICMP echo reply, id 30, seq 3, length 64
 ```
-Looking at the timestamps, the delay is NOT apparent here. This points at the delay occurring somewhere between the incoming interface FROM the Client and the outgoing interface TO the Server; eg the Router.
+Looking at the timestamps, the delay is NOT apparent here. This points at the delay occurring somewhere between the incoming interface FROM the Client and the outgoing interface TO the Server; eg Router induced delay.
 
 But what if we didn't know which direction the delay was being incurred on? Since Ping reports the RTT, let's single out whether the delay is occurring in the upstream or downstream. Perhaps you don't have access to the router, or intermediate network element, but you do have access to the Client and Server. Or maybe you have access to the Client, Server and first-hop router (or Access Point), but do not have access to the next upstream router. For this example, we'll capture on both the Client and Server and take a closer look at the two pcaps to identify where the direction of the incurred delay.
 ```
@@ -99,12 +99,12 @@ Note, I've changed the preferences to show Source and Dest as MAC instead of IP 
 02:42:ac:12:01:01 Router_eth2
 02:42:ac:12:01:05 Server
 ```
-Now we can deduce that the 250ms delay in RTT (pings) is occurring in the upstream direction since the time delta between the Echo Reply FROM the Server and receiving it at the Client is minimal as compared to the Echo Reequest FROM the Client being recieved by the Server. For example:
+Now we can deduce that the 250ms delay in RTT (pings) is occurring in the upstream direction since the time delta between the Echo Reply FROM the Server and receiving it at the Client is minimal as compared to the Echo Request FROM the Client being received by the Server. For example:
 From Client TO Server:
 ![upstream_ping](img/upstream_ping.png)
 From Server TO Client:
 ![downstream_ping](img/downstream_ping.png)
-We can also deteremine that it's not the Server introducing processing delay, by looking at the delta between the Server recieving the Echo Request and sending the Echo Reply. This would be visible in tcpdump as well:
+We can also determine that it's not the Server introducing processing delay, by looking at the delta between the Server receiving the Echo Request and sending the Echo Reply. This would be visible in tcpdump as well:
 ```
 root@3c2c5b896825:/home/server# tcpdump -n -i eth0 -ttt
 tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
@@ -112,7 +112,7 @@ listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes
  00:00:00.000000 IP 172.18.0.5 > 172.18.1.5: ICMP echo request, id 16, seq 3418, length 64
  00:00:00.000079 IP 172.18.1.5 > 172.18.0.5: ICMP echo reply, id 16, seq 3418, length 64
  ```
-Also worth pointint out othere tools which can help find the problem without capturing packets, for example traceroute and mtr.
+Also worth pointing out other tools which can help find the problem without capturing packets, for example traceroute and mtr.
 ```
 root@74ea77a5ea2d:/home/simpleclient# mtr 172.18.1.5 -n -c 5 -r
 Start: 2019-04-18T21:44:19+0000
@@ -140,7 +140,7 @@ tc qdisc del dev eth2 root netem
 
 ## Finding the root
 
-If this router was an AP, the Delay could be due to contention/congestion, or excessive 802.11 retries; in either direction.. Clearly here we're doing the pcap on the Client interface, so no 802.11 (where you'd see something like excessive 802.11 retries quite clearly). For that you'd need an over-the-air packet capture. More on that later.
+If this router was an AP, the Delay could be due to contention/congestion, or excessive 802.11 retries; in either direction. Here we're doing the pcap on the Client interface, so no 802.11 (where you'd see something like excessive 802.11 retries quite clearly). For that you'd need an over-the-air packet capture. More on that later.
 
 # Scenario 2 [TCP Network Delay]
 Lets analyze an HTTP download from a few different POV's. First, start a simple webserver **on the Server container:**
@@ -197,7 +197,7 @@ Connecting to host 172.18.1.5, port 5201
 [  4]   0.00-10.00  sec  87.8 MBytes  73.7 Mbits/sec                  receiver
 ```
 With only one viewpoint (Clients) this doesn't help us identify 'where' the slowdown is occurring. For that, similar to above, we need to capture on the other side as well. Just like above, our analysis depends on which element we're capturing on.
-Capturing on the Router, we compare the incoming SYN on eth0 to the outgoing SYN on eth2. This can be easily done in Wireshark (as seen above) but for the purposes of this example, I'll do a tcpdump on all Router interfaces.
+Capturing on the Router, we compare the incoming SYN on eth0 (To Client) to the outgoing SYN on eth2 (To Server). This can be easily done in Wireshark (as seen above) but for the purposes of this example, I'll do a tcpdump on all Router interfaces.
 ```
 root@6f0df20286b0:/home/router# tcpdump -i any -n -ttt
 tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
@@ -208,7 +208,7 @@ listening on any, link-type LINUX_SLL (Linux cooked), capture size 262144 bytes
  00:00:00.000022 IP 172.18.1.5.80 > 172.18.0.5.60374: Flags [S.], seq 2839013440, ack 3056652435, win 28960, options [mss 1460,sackOK,TS val 1562284 ecr 1562264,nop,wscale 7], length 0
 ```
 You can see the 200ms latency on line 2. Line 1 is the reception of the SYN on eth0 and line 2 is the egress of the SYN on eth2.
-Going the other way, line 3 you see the SYN-ACK being recieved on eth2 and egressing eth0 on line 4 .00022ms later.
+Going the other way, line 3 you see the SYN-ACK being received on eth2 (from Server) and egressing eth0 (to Client) on line 4 .00022ms later.
 Note, you probably won't have the luxury of capturing on all interfaces on a network element; so you would need to combine the pcaps as done in the example above.
 
 ## Determining whether it's Server induced latency.
