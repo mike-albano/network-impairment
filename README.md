@@ -4,7 +4,7 @@ While the Router is simply a Linux container routing between two other container
 The main impairments we'll be analyzing are:
 * Deley
 * Packet Loss
-* QoS Buffer overflow
+* QoS Buffer overflow (coming soon!)
 
 # Requirements
 * docker
