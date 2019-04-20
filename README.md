@@ -1,6 +1,6 @@
 The purpose of this is to emulate a simple client <==> server model with a router inbetween. Different network impairments will be applied to show examples of various network failure scenarios.
 
-While this is simply a Linux container routing between two other containers ()"client" and "server") the concepts apply to Access Points as well; or any network element responsible for carrying traffic between two hosts.
+While the Router is simply a Linux container routing between two other containers ("client" and "server") the concepts apply to Access Points as well; or any network element responsible for carrying traffic between two hosts.
 The main impairments we'll be analyzing are:
 * Deley
 * Packet Loss
@@ -14,9 +14,12 @@ The main impairments we'll be analyzing are:
 * docker-compose up
 * [in 3 terminals] docker attach client|server|router
 
+# Topology
+![topo](img/topology.png)
+
 # Scenario 1 [ICMP Network Delay]
 This example will apply delay at the routers outgoing interface towards the server.
-In the real world this could happen for any number of reasons, including link capacity, AP/Router CPU, software-but etc.
+In the real world this could happen for any number of reasons, including link capacity, AP/Router CPU, software-bug etc.
 
 On the router container lets introduce 250ms of delay on the interface headed towards the Server:
 ```
@@ -326,3 +329,69 @@ listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes
 21:17:51.384697 IP 172.18.0.5 > 172.18.1.5: ICMP echo request, id 79, seq 10, length 64
 21:17:51.384717 IP 172.18.1.5 > 172.18.0.5: ICMP echo reply, id 79, seq 10, length 64
 ```
+Packet loss is also fairly easy to see in traceroutee and mtr. For example, on Client:
+```
+root@000af00da7e1:/home/simpleclient# mtr 172.18.1.5 -n -c 10 -r
+Start: 2019-04-19T22:03:38+0000
+HOST: 000af00da7e1                Loss%   Snt   Last   Avg  Best  Wrst StDev
+  1.|-- 172.18.0.1                 0.0%    10    0.2   0.2   0.1   0.2   0.0
+  2.|-- 172.18.1.5                50.0%    10    0.2   0.2   0.1   0.2   0.0
+
+root@000af00da7e1:/home/simpleclient# traceroute 172.18.1.5 -n
+traceroute to 172.18.1.5 (172.18.1.5), 30 hops max, 60 byte packets
+  1  172.18.0.1  0.874 ms  0.664 ms  0.610 ms
+  2  172.18.1.5  0.564 ms * *
+```
+"*" in traceroute indicates no response.
+
+# Scenario 4 [TCP Packet Loss]
+First, what packet loss looks like from the Clients POV. Docker attach another terminal to the Client and run tcpdump:
+```
+root@000af00da7e1:/home/simpleclient# tcpdump -n -i eth0 -w /mnt/hostdir/pcaps/curl_client_lossy.pcap
+```
+And then open the capture in wireshark on the Host. You can immediately see the TCP Retransmission during the initial connection establishment (packet 2).
+![retrans](img/client-retrans.png)
+And if you filter by TCP Retransmission analysis you'll see quite a few:
+![all_retrans](img/client-retransmissions.png)
+Curiously, if packets are being dropped on the interface headed TO the Server, why are most of the TCP Retransmissions happening FROM the Server TO the Client? (you can easily see the direction of most of the TCP Retrans in Statistics-->Conversations-->Limit to Display filter)
+![retrans_direction](img/retrans-direction.png)
+If you remove the filter you can see that it's Client ACKnowledgements that are not making it back to the Server; hence the Server retransmits. For example:
+![dup_ack](img/dupack.png)
+What would the Clients POV pcap look like if the packet-loss was in the other direction? Let's change the lossy interface to eth0 **on the router:** and re-run the curl command while capturing packets:
+```
+root@6f0df20286b0:/home/router# tc qdisc del dev eth2 root netem
+root@6f0df20286b0:/home/router# tc qdisc add dev eth0 root netem loss 50%
+
+root@000af00da7e1:/home/simpleclient# tcpdump -n -i eth0 -w /mnt/hostdir/pcaps/curl_client_lossy2.pcap
+tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes
+
+root@000af00da7e1:/home/simpleclient# curl -o /dev/null 172.18.1.5/dummyfile
+```
+Expectedly, when the packet loss is occurring towards the client we see a lot more symptoms of a problematic connection since the majority of the packets are FROM Server TO Client (http download). TCP Retransmissions are now >13% of the packets (see curl_client_loss2.pcap) with a lot of out-of-order packets.
+
+mtr and traceroute during downstream packet loss:
+```
+root@000af00da7e1:/home/simpleclient# mtr 172.18.1.5 -n -c 10 -r
+Start: 2019-04-20T01:12:40+0000
+HOST: 000af00da7e1                Loss%   Snt   Last   Avg  Best  Wrst StDev
+  1.|-- 172.18.0.1                50.0%    10    0.1   0.1   0.1   0.2   0.0
+  2.|-- 172.18.1.5                50.0%    10    0.2   0.2   0.1   0.2   0.0
+
+traceroute to 172.18.1.5 (172.18.1.5), 30 hops max, 60 byte packets
+  1  * 172.18.0.1  0.556 ms  0.519 ms
+  2  172.18.1.5  0.468 ms *  0.367 ms
+```
+You now see the packet loss from both sources, as opposed to just the Server when loss was occurring on the eth2 interface.
+
+Now to further diagnose where exactly the loss is occuring; lets capture on the Client and the Router eth0 (headed to Server) at the same time. Let that run for a few seconds, then take a look.
+```
+root@6f0df20286b0:/home/router# tcpdump -n -i eth2 -w /mnt/hostdir/pcaps/curl_router_lossy.pcap
+root@000af00da7e1:/home/simpleclient# tcpdump -n -i eth0 -w /mnt/hostdir/pcaps/curl_client_lossy3.pcap
+```
+
+Now when we combine these pcaps (or analyze them separately) as above, it should be easy to see where the packets are being dropped.
+For example (after merging the pcaps):
+![curl_lossy_combined](img/lossy.png)
+Again, the Wireshark TCP ordering warnings aren't always valid after a mergecap, but you can see the SYN is sent FROM the Router TO the Server (packet 5); then the SYN-ACK reply is sent FROM the Server TO the Router (packet 6). However we never see that SYN-ACK headed TO the Client. Therefore, the next packet is a TCP Retransmission of the SYN-ACK (packet 7) and the next packet (packet 8) is a TCP Reetransmission of the Clients SYN (as it starts the Handshake over again); except this time the SYN-ACK does make it to the Client (packet 11). We can deduce that the packets are getting dropped somewhere between eth2 of the Router and the Client. If we also captured on Router eth0 we would see the dropped packets NOT egressing; but it's safe to assume the issue here IS the Router. If this was an Access Point, an over-the-air pcap would help eliminate contentions/noise from the equation (look for 802.11 Retries)
+
+This lossy connection continues; and the pcaps are littered with retransmissions (use display filter: tcp.analysis.retransmission)
