@@ -1,10 +1,12 @@
-The purpose of this is to emulate a simple client <==> server model with a router inbetween. Different network impairments will be applied to show examples of analyzing various network failure scenarios.
+The purpose of this is to emulate a simple client <==> server model with a router in-between. Different network impairments will be applied to show examples of analyzing various network failure scenarios.
 
 While the Router is simply a Linux container routing between two other containers ("client" and "server") the concepts apply to Access Points as well; or any network element responsible for carrying traffic between two hosts.
 The main impairments we'll be analyzing are:
 * Deley
 * Packet Loss
-* QoS Buffer overflow (coming soon!)
+* QoS overflow (coming soon!)
+* 802.11 Contention (coming soon!)
+* RF Interference (coming soon!)
 
 # Requirements
 * docker
@@ -36,9 +38,7 @@ PING 172.18.1.5 (172.18.1.5) 56(84) bytes of data.
 64 bytes from 172.18.1.5: icmp_seq=4 ttl=63 **time=250 ms**
 ```
 ## Analyze the PCAP
-When looking at packet captures, choosing the location (or device) is critical. Here we'll run TCPDUMP on the Routers interfaces to isolate where they delay is occuring.
-
-First, on the interface headed towards the client:
+When looking at packet captures, choosing the location (or device) is critical. Here we'll run TCPDUMP on the Routers interfaces, headed towards the Client, to isolate where they delay is occurring.
 ```
 root@d9fbc3167c1e:/home/router# tcpdump -n -i eth0
 tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
@@ -73,22 +73,24 @@ listening on eth2, link-type EN10MB (Ethernet), capture size 262144 bytes
 ```
 Looking at the timestamps, the delay is NOT apparent here. This points at the delay occurring somewhere between the incoming interface FROM the Client and the outgoing interface TO the Server; eg Router induced delay.
 
-But what if we didn't know which direction the delay was being incurred on? Since Ping reports the RTT, let's single out whether the delay is occurring in the upstream or downstream. Perhaps you don't have access to the router, or intermediate network element, but you do have access to the Client and Server. Or maybe you have access to the Client, Server and first-hop router (or Access Point), but do not have access to the next upstream router. For this example, we'll capture on both the Client and Server and take a closer look at the two pcaps to identify where the direction of the incurred delay.
+But what if we didn't know which direction the delay was being incurred on? Since Ping reports the RTT, let's single out whether the delay is occurring in the upstream or downstream. Perhaps you don't have access to the router, or intermediate network element, but you do have access to the Client and Server. Or maybe you have access to the Client, Server and first-hop router (or Access Point), but do not have access to the next upstream router.
+For this example, we'll capture on both the Client and Server and to identify the direction of the incurred delay.
 ```
-$docker ps -f name=client
-CONTAINER ID        IMAGE               COMMAND                   CREATED             STATUS              PORTS               NAMES
-**33a60d9be0a7**        mike909/client:v1   "/bin/sh -c '\"/home/…"   3 hours ago         Up 3 hours                              client
-$docker exec -it 33a60d9be0a7 bash
+# Open a second terminal on the Client container and start capture
+host_machine$ docker exec -it client bash
 root@33a60d9be0a7:/home/simpleclient# tcpdump -n -i eth0 -w /mnt/hostdir/client_pings_delayed.pcap
-# And on the Server:
+
+# Start capture on the Server
 root@3c2c5b896825:/home/server# tcpdump -n -i eth0 -w /mnt/hostdir/server_pings_delayed.pcap
 tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes
 
+# Ping 3 times from Client to Server
 root@33a60d9be0a7:/home/simpleclient# ping 172.18.1.5 -c3
 ```
 Now, in our hosts directory we have the two pcaps; one from Client and other from Server. In this contrived example we can simply open them both in Wireshark and analyze separately; however in a more complex situation, it may be beneficial to combone both pcaps into a single file, and analyze together. Open one pcap, then File-->Merge and select the other.
 Note, Wireshark won't be able to 'follow' the ICMP Echo/Reply conversation from the Client, however you can use the Sequence numbers yourself to follow it. For example:
 ![icmpfollow](img/combined1.png)
+
 and the corrosponding reply in packet 4...
 ![icmpfollow](img/combined2.png)
 
@@ -99,7 +101,8 @@ Note, I've changed the preferences to show Source and Dest as MAC instead of IP 
 02:42:ac:12:01:01 Router_eth2
 02:42:ac:12:01:05 Server
 ```
-Now we can deduce that the 250ms delay in RTT (pings) is occurring in the upstream direction since the time delta between the Echo Reply FROM the Server and receiving it at the Client is minimal as compared to the Echo Request FROM the Client being received by the Server. For example:
+Now we can deduce that the 250ms delay in RTT (pings) is occurring in the upstream direction since the time delta between the Echo Reply FROM the Server and receiving it at the Client is minimal as compared to the Echo Request FROM the Client being received by the Server.
+For example:
 From Client TO Server:
 ![upstream_ping](img/upstream_ping.png)
 From Server TO Client:
@@ -197,7 +200,7 @@ Connecting to host 172.18.1.5, port 5201
 [  4]   0.00-10.00  sec  87.8 MBytes  73.7 Mbits/sec                  receiver
 ```
 With only one viewpoint (Clients) this doesn't help us identify 'where' the slowdown is occurring. For that, similar to above, we need to capture on the other side as well. Just like above, our analysis depends on which element we're capturing on.
-Capturing on the Router, we compare the incoming SYN on eth0 (To Client) to the outgoing SYN on eth2 (To Server). This can be easily done in Wireshark (as seen above) but for the purposes of this example, I'll do a tcpdump on all Router interfaces.
+Capturing on the Router, we compare the incoming SYN on eth0 (from Client) to the outgoing SYN on eth2 (to Server). This can be easily done in Wireshark (as seen above) but for the purposes of this example, I'll do a tcpdump on all Router interfaces.
 ```
 root@6f0df20286b0:/home/router# tcpdump -i any -n -ttt
 tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
@@ -345,7 +348,7 @@ traceroute to 172.18.1.5 (172.18.1.5), 30 hops max, 60 byte packets
 "*" in traceroute indicates no response.
 
 # Scenario 4 [TCP Packet Loss]
-First, what packet loss looks like from the Clients POV. Docker attach another terminal to the Client and run tcpdump:
+First, what packet loss looks like from the Clients POV. Docker attach another terminal to the Client if needed and run tcpdump:
 ```
 root@000af00da7e1:/home/simpleclient# tcpdump -n -i eth0 -w /mnt/hostdir/pcaps/curl_client_lossy.pcap
 ```
@@ -383,7 +386,7 @@ traceroute to 172.18.1.5 (172.18.1.5), 30 hops max, 60 byte packets
 ```
 You now see the packet loss from both sources, as opposed to just the Server when loss was occurring on the eth2 interface.
 
-Now to further diagnose where exactly the loss is occuring; lets capture on the Client and the Router eth0 (headed to Server) at the same time. Let that run for a few seconds, then take a look.
+Now to further diagnose exactly where the loss is occuring; lets capture on the Client and the Router eth0 (headed to Server) at the same time. Let that run for a few seconds while you DL the file with curl (as above), then take a look.
 ```
 root@6f0df20286b0:/home/router# tcpdump -n -i eth2 -w /mnt/hostdir/pcaps/curl_router_lossy.pcap
 root@000af00da7e1:/home/simpleclient# tcpdump -n -i eth0 -w /mnt/hostdir/pcaps/curl_client_lossy3.pcap
@@ -392,6 +395,7 @@ root@000af00da7e1:/home/simpleclient# tcpdump -n -i eth0 -w /mnt/hostdir/pcaps/c
 Now when we combine these pcaps (or analyze them separately) as above, it should be easy to see where the packets are being dropped.
 For example (after merging the pcaps):
 ![curl_lossy_combined](img/lossy.png)
-Again, the Wireshark TCP ordering warnings aren't always valid after a mergecap, but you can see the SYN is sent FROM the Router TO the Server (packet 5); then the SYN-ACK reply is sent FROM the Server TO the Router (packet 6). However we never see that SYN-ACK headed TO the Client. Therefore, the next packet is a TCP Retransmission of the SYN-ACK (packet 7) and the next packet (packet 8) is a TCP Reetransmission of the Clients SYN (as it starts the Handshake over again); except this time the SYN-ACK does make it to the Client (packet 11). We can deduce that the packets are getting dropped somewhere between eth2 of the Router and the Client. If we also captured on Router eth0 we would see the dropped packets NOT egressing; but it's safe to assume the issue here IS the Router. If this was an Access Point, an over-the-air pcap would help eliminate contentions/noise from the equation (look for 802.11 Retries)
+Again, the Wireshark TCP ordering warnings aren't always valid after a mergecap, but you can see the SYN is sent FROM the Router TO the Server (packet 5); then the SYN-ACK reply is sent FROM the Server TO the Router (packet 6). However we never see that SYN-ACK headed TO the Client. Therefore, the next packet is a TCP Retransmission of the SYN-ACK (packet 7) and the next packet (packet 8) is a TCP Reetransmission of the Clients SYN (as it starts the Handshake over again); except this time the SYN-ACK does make it to the Client (packet 11). We can deduce that the packets are getting dropped somewhere between eth2 of the Router and the Client. If we also captured on Router eth0 we would see the dropped packets NOT egressing; but it's safe to assume the issue here IS the Router.
+If this was an Access Point, an over-the-air pcap would help eliminate contentions/noise from the equation (look for 802.11 Retries)
 
 This lossy connection continues; and the pcaps are littered with retransmissions (use display filter: tcp.analysis.retransmission)
