@@ -1,4 +1,4 @@
-The purpose of this is to emulate a simple client <==> server model with a router inbetween. Different network impairments will be applied to show examples of various network failure scenarios.
+The purpose of this is to emulate a simple client <==> server model with a router inbetween. Different network impairments will be applied to show examples of analyzing various network failure scenarios.
 
 While the Router is simply a Linux container routing between two other containers ("client" and "server") the concepts apply to Access Points as well; or any network element responsible for carrying traffic between two hosts.
 The main impairments we'll be analyzing are:
