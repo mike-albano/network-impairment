@@ -425,4 +425,13 @@ round-trip min/avg/max/stddev = 550.681/591.306/632.960/28.903 ms
 ```
 Note the "-z 72". This sets the ToS bits to 72, which translates to DSCP decimal 18 (AF21).
 
-If we look only at the [wired-side pcap](pcaps/icmp_af21_wired.pcapng), we'll only see the Echos going out, and no reply being returned until ~600ms later.
+If we look only at the [wired-side pcap](pcaps/icmp_af21_wired.pcapng), we'll see the Echos going out, and replies being returned ~600ms later. For example:
+![wired-side-only](img/wired-side-only.png)
+This doesn't tell us much more than what we see in the ping output above. About all we can deduce here is that the delay is not being induced somewhere upstream of this port-mirror. We know it's downstream delay because we can see it in this pcap. If the delay was being induced upstream, the Echo request/replies here would not show the delay.
+If we look at the [over-the-air pcap](pcaps/wifionly-af21.pcapng), we'll see the Echo request/reply exchange without the excessive Delay. For example:
+![wifi-nodelay](img/wifi-bk-pings.png)
+This is our first hint that the delay is being induced by the AP.
+
+When we **combine the two pcaps**; we can clearly see the delay being induced by the AP:
+![delay-in-merge](img/Delay-in-mergecap.png)
+Note, after you merge the two pcaps, even though following the ICMP conversation can be harder, you can easily see that the over-the-air frames include the Radio-tap header and 802.11 info, while the previous on-the-wire packet doesn't. The merged pcap makes it obvious where the delay is coming from, as the Echo request arrives at the AP but does not show up over-the-air until 600ms later.
