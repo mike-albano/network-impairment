@@ -12,11 +12,11 @@ The main impairments we'll be analyzing are:
 - [Requirements](#requirements)
 - [Quickstart](#quickstart)
 - [Topology](#topology)
-- [Scenario 1 : ICMP Network Delay](#scenario-1--icmp-network-delay-)
-- [Scenario 2 : TCP Network Delay](#scenario-2--tcp-network-delay-)
-- [Scenario 3 : ICMP Packet Loss](#scenario-3--icmp-packet-loss-)
-- [Scenario 4 : TCP Packet Loss](#scenario-4--tcp-packet-loss-)
-- [Scenario 5 : QoS induced Latency](#scenario-5--qos-induced-latency-)
+- [Scenario 1 : ICMP Network Delay](#scenario-1-:-icmp-network-delay)
+- [Scenario 2 : TCP Network Delay](#scenario-2-:-tcp-network-delay)
+- [Scenario 3 : ICMP Packet Loss](#scenario-3-:-icmp-packet-loss)
+- [Scenario 4 : TCP Packet Loss](#scenario-4-:-tcp-packet-loss)
+- [Scenario 5 : QoS induced Latency](#scenario-5-:-qos-induced-latency)
 
 # Requirements
 * docker
