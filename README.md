@@ -4,7 +4,7 @@ While the Router is simply a Linux container routing between two other container
 The main impairments we'll be analyzing are:
 * Deley
 * Packet Loss
-* QoS overflow (coming soon!)
+* QoS Dequeuing Delay
 * 802.11 Contention (coming soon!)
 * RF Interference (coming soon!)
 
@@ -399,3 +399,30 @@ Again, the Wireshark TCP ordering warnings aren't always valid after a mergecap,
 If this was an Access Point, an over-the-air pcap would help eliminate contentions/noise from the equation (look for 802.11 Retries)
 
 This lossy connection continues; and the pcaps are littered with retransmissions (use display filter: tcp.analysis.retransmission)
+
+# Scenario 5 [QoS induced Latency]
+In this real-world example, an Access Point was introducing Delay into any frame that was being sent over-the-air utilizing the WMM_BK (Background) Access Category. Vendors handle which DSCP and/or CoS value maps to each WMM Access Category, but in this example anything marked with DSCP AF21 (which has a decimal value of 18 [reference](https://www.bytesolutions.com/dscp-tos-cos-presidence-conversion-chart/) ended up utilizing the WMM Background queue. There was a software bug which was Dequeuing these frames slowly, providing for a poor user experience.
+
+Let's go into how we reproduced this issue, as well as how we analyzed it.
+While capturing via port-mirror on the switch-port of the AP, as well as over-the-air at the same time, we initiate some pings FROM a wired station TO a WiFi station. We mark the ICMP Echo packets with AF21:
+```
+ping -b en8 -z 72 192.168.1.57 -c10
+PING 192.168.1.57 (192.168.1.57): 56 data bytes
+64 bytes from 192.168.1.57: icmp_seq=0 ttl=64 time=610.983 ms
+64 bytes from 192.168.1.57: icmp_seq=1 ttl=64 time=632.578 ms
+64 bytes from 192.168.1.57: icmp_seq=2 ttl=64 time=550.681 ms
+64 bytes from 192.168.1.57: icmp_seq=3 ttl=64 time=569.478 ms
+64 bytes from 192.168.1.57: icmp_seq=4 ttl=64 time=591.479 ms
+64 bytes from 192.168.1.57: icmp_seq=5 ttl=64 time=611.208 ms
+64 bytes from 192.168.1.57: icmp_seq=6 ttl=64 time=632.960 ms
+64 bytes from 192.168.1.57: icmp_seq=7 ttl=64 time=551.467 ms
+64 bytes from 192.168.1.57: icmp_seq=8 ttl=64 time=570.859 ms
+64 bytes from 192.168.1.57: icmp_seq=9 ttl=64 time=591.366 ms
+
+--- 192.168.1.57 ping statistics ---
+10 packets transmitted, 10 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 550.681/591.306/632.960/28.903 ms
+```
+Note the "-z 72". This sets the ToS bits to 72, which translates to DSCP decimal 18 (AF21).
+
+If we look only at the [wired-side pcap](pcaps/icmp_af21_wired.pcapng), we'll only see the Echos going out, and no reply being returned until ~600ms later.
