@@ -12,11 +12,11 @@ The main impairments we'll be analyzing are:
 - [Requirements](#requirements)
 - [Quickstart](#quickstart)
 - [Topology](#topology)
-- [Scenario 1 [ICMP Network Delay]](#scenario-1--icmp-network-delay-)
-- [Scenario 2 [TCP Network Delay]](#scenario-2--tcp-network-delay-)
-- [Scenario 3 [ICMP Packet Loss]](#scenario-3--icmp-packet-loss-)
-- [Scenario 4 [TCP Packet Loss]](#scenario-4--tcp-packet-loss-)
-- [Scenario 5 [QoS induced Latency]](#scenario-5--qos-induced-latency-)
+- [Scenario 1 : ICMP Network Delay](#scenario-1--icmp-network-delay-)
+- [Scenario 2 : TCP Network Delay](#scenario-2--tcp-network-delay-)
+- [Scenario 3 : ICMP Packet Loss](#scenario-3--icmp-packet-loss-)
+- [Scenario 4 : TCP Packet Loss](#scenario-4--tcp-packet-loss-)
+- [Scenario 5 : QoS induced Latency](#scenario-5--qos-induced-latency-)
 
 # Requirements
 * docker
@@ -29,7 +29,7 @@ The main impairments we'll be analyzing are:
 # Topology
 ![topo](img/topology.png)
 
-# Scenario 1 [ICMP Network Delay]
+# Scenario 1 : ICMP Network Delay
 This example will apply delay at the routers outgoing interface towards the server.
 In the real world this could happen for any number of reasons, including link capacity, AP/Router CPU, software-bug etc.
 
@@ -155,7 +155,7 @@ tc qdisc del dev eth2 root netem
 
 If this router was an AP, the Delay could be due to contention/congestion, or excessive 802.11 retries; in either direction. Here we're doing the pcap on the Client interface, so no 802.11 (where you'd see something like excessive 802.11 retries quite clearly). For that you'd need an over-the-air packet capture. More on that later.
 
-# Scenario 2 [TCP Network Delay]
+# Scenario 2 : TCP Network Delay
 Lets analyze an HTTP download from a few different POV's. First, start a simple webserver **on the Server container:**
 ```
 python -m SimpleHTTPServer 80
@@ -237,7 +237,7 @@ listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes
 ```
 Now this is again oversimplifying; since it's entirely possible that the connection establishment (SYN/SYN-ACK/ACK) is fast; but the Server is then slow to respond later on in the connection. You can use the TCP Stream Graph (Statistics --> TCP Stream Graphs) to visualize the full conversation, as it relates to both latency and throughput.
 
-# Scenario 3 [ICMP Packet Loss]
+# Scenario 3 : ICMP Packet Loss
 First, apply a packet loss of 50% **on the Router** between the Client and Server (either on eth0 or eth2):
 ```
 tc qdisc add dev eth2 root netem loss 50%
@@ -357,7 +357,8 @@ traceroute to 172.18.1.5 (172.18.1.5), 30 hops max, 60 byte packets
 ```
 "*" in traceroute indicates no response.
 
-# Scenario 4 [TCP Packet Loss]
+# Scenario 4 : TCP Packet Loss
+
 First, what packet loss looks like from the Clients POV. Docker attach another terminal to the Client if needed and run tcpdump:
 ```
 root@000af00da7e1:/home/simpleclient# tcpdump -n -i eth0 -w /mnt/hostdir/pcaps/curl_client_lossy.pcap
@@ -410,7 +411,7 @@ If this was an Access Point, an over-the-air pcap would help eliminate contentio
 
 This lossy connection continues; and the pcaps are littered with retransmissions (use display filter: tcp.analysis.retransmission)
 
-# Scenario 5 [QoS induced Latency]
+# Scenario 5 : QoS induced Latency
 In this real-world example, an Access Point was introducing Delay into any frame that was being sent over-the-air utilizing the WMM_BK (Background) Access Category. Vendors handle which DSCP and/or CoS value maps to each WMM Access Category, but in this example anything marked with DSCP AF21 (which has a decimal value of 18 [reference](https://www.bytesolutions.com/dscp-tos-cos-presidence-conversion-chart/) ended up utilizing the WMM Background queue. There was a software bug which was Dequeuing these frames slowly, providing for a poor user experience.
 
 Let's go into how we reproduced this issue, as well as how we analyzed it.
