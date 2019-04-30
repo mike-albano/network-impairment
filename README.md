@@ -8,16 +8,6 @@ The main impairments we'll be analyzing are:
 * 802.11 Contention (coming soon!)
 * RF Interference (coming soon!)
 
-# TOC
-- [Requirements](#requirements)
-- [Quickstart](#quickstart)
-- [Topology](#topology)
-- [Scenario 1 : ICMP Network Delay](#scenario-1-:-icmp-network-delay)
-- [Scenario 2 : TCP Network Delay](#scenario-2-:-tcp-network-delay)
-- [Scenario 3 : ICMP Packet Loss](#scenario-3-:-icmp-packet-loss)
-- [Scenario 4 : TCP Packet Loss](#scenario-4-:-tcp-packet-loss)
-- [Scenario 5 : QoS induced Latency](#scenario-5-:-qos-induced-latency)
-
 # Requirements
 * docker
 
@@ -358,7 +348,6 @@ traceroute to 172.18.1.5 (172.18.1.5), 30 hops max, 60 byte packets
 "*" in traceroute indicates no response.
 
 # Scenario 4 : TCP Packet Loss
-
 First, what packet loss looks like from the Clients POV. Docker attach another terminal to the Client if needed and run tcpdump:
 ```
 root@000af00da7e1:/home/simpleclient# tcpdump -n -i eth0 -w /mnt/hostdir/pcaps/curl_client_lossy.pcap
