@@ -403,6 +403,7 @@ This lossy connection continues; and the pcaps are littered with retransmissions
 # Scenario 5 : QoS induced Latency
 In this real-world example, an Access Point was introducing Delay into any frame that was being sent over-the-air utilizing the WMM_BK (Background) Access Category. The topology used int this real-world example is as follows:
 ![topo-real](img/topo-real.png)
+
 Vendors handle which DSCP and/or CoS value maps to each WMM Access Category, but in this example anything marked with DSCP AF21 (which has a decimal value of 18 [reference](https://www.bytesolutions.com/dscp-tos-cos-presidence-conversion-chart/) ended up utilizing the WMM Background queue. There was a software bug which was Dequeuing these frames slowly, providing for a poor user experience.
 
 Let's go into how we reproduced this issue, as well as how we analyzed it.
