@@ -16,6 +16,24 @@ The main impairments we'll be analyzing are:
 * docker-compose up
 * [in 3 terminals] docker attach client|server|router
 
+Table of Contents
+=================
+
+   * [Requirements](#requirements)
+   * [Quickstart](#quickstart)
+   * [Topology](#topology)
+   * [Scenario 1 : ICMP Network Delay](#scenario-1--icmp-network-delay)
+      * [Verify it's broken](#verify-its-broken)
+      * [Analyze the PCAP](#analyze-the-pcap)
+      * [Downstream Network Delay](#downstream-network-delay)
+      * [Finding the root](#finding-the-root)
+   * [Scenario 2 : TCP Network Delay](#scenario-2--tcp-network-delay)
+      * [Looking only at the Client pcap](#looking-only-at-the-client-pcap)
+      * [Determining whether it's Server induced latency.](#determining-whether-its-server-induced-latency)
+   * [Scenario 3 : ICMP Packet Loss](#scenario-3--icmp-packet-loss)
+   * [Scenario 4 : TCP Packet Loss](#scenario-4--tcp-packet-loss)
+   * [Scenario 5 : QoS induced Latency](#scenario-5--qos-induced-latency)
+
 # Topology
 ![topo](img/topology.png)
 
