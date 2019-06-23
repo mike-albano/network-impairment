@@ -5,8 +5,8 @@ The main impairments we'll be analyzing are:
 * Deley
 * Packet Loss
 * QoS Dequeuing Delay
-* 802.11 Contention (coming soon!)
-* RF Interference (coming soon!)
+* 802.11 Contention (Future work)
+* RF Interference (Future work)
 
 # Requirements
 * docker
@@ -456,3 +456,6 @@ This is our first hint that the delay is being induced by the AP.
 When we **combine the two pcaps**; we can clearly see the delay being induced by the AP:
 ![delay-in-merge](img/Delay-in-mergecap.png)
 Note, after you merge the two pcaps, even though following the ICMP conversation can be harder, you can easily see that the over-the-air frames include the Radio-tap header and 802.11 info, while the previous on-the-wire packet doesn't. The merged pcap makes it obvious where the delay is coming from, as the Echo request arrives at the AP but does not show up over-the-air until 600ms later.
+
+# Contributing
+Pull Requests welcome. Particularly interested in future work. For example, using above methods to show 802.11 contention induced delay on a TCP connection, using over-the-air capture.
