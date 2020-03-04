@@ -2,7 +2,7 @@ The purpose of this is to emulate a simple client <==> server model with a route
 
 While the Router is simply a Linux container routing between two other containers ("client" and "server") the concepts apply to Access Points as well; or any network element responsible for carrying traffic between two hosts.
 The main impairments we'll be analyzing are:
-* Deley
+* Delay
 * Packet Loss
 * QoS Dequeuing Delay
 * 802.11 Contention (Future work)
